@@ -32,3 +32,10 @@ summary(sum_ingresos)
 ## Merge por id para agregarle a la base de train hogares la variable de sum ingresos
 train_hogares<-left_join(train_hogares,sum_ingresos)
 colnames(train_hogares)
+
+## read csv para tener la guia de como se deben entregar las predicciones
+p_load(readr)
+file.choose()
+ruta_template <- "C:\\Users\\Santiago Becerra\\Desktop\\Santiago\\Andes\\Materias y Trabajos\\Octavo Semestre\\Big Data\\Problem set 2\\Taller_BigData_2\\Stores\\submission_template.csv"
+template <- read.csv(ruta_template)
+
