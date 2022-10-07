@@ -55,7 +55,7 @@ glimpse(train_hogares)
 sum(is.na(train_hogares$Ingtotugarr))
 sum(is.na(train_hogares$Ingtot_hogar))
 
-# variables X´s <- c("estrato1", "P6430 (POSICION OCUPACIONAL PRIMERA ACTIVIDAD)", "edad (P6040)", "educación (P6210)", "vivivienda propia (P5090)","Nper", "P6800 (horas trabajadas semanalmente)", "P5130 (SI PAGARA ARRIENDO, CUANTO ESTIMA QUE SERIA", "P5140 (CUANTO PAGA POR ARRIENDO)"))
+# variables X´s <- c("P6430 (POSICION OCUPACIONAL PRIMERA ACTIVIDAD)", "edad (P6040)", "educación (P6210)", "vivivienda propia (P5090)","Nper", "P6800 (horas trabajadas semanalmente)", "Arri", "P5000 (CUARTOS HOGAR")))
 
 #Volvemos 0 los NA de hogares
 sum(is.na(train_hogares$P5090))
@@ -64,9 +64,9 @@ train_hogares$P5130 [is.na(train_hogares$P5130)] <- 0
 sum(is.na(train_hogares$P5140))
 train_hogares$P5140 [is.na(train_hogares$P5140 )] <- 0
 sum(is.na(train_hogares$Nper))
+sum(is.na(train_hogares$P5000))
 
 #Volvemos 0 los NA de personas
-sum(is.na(train_personas$Estrato1))
 sum(is.na(train_personas$P6430))
 #Hacemos un "tab" para entender la variable
 train_personas %>%
@@ -90,9 +90,38 @@ train_personas$P6210 [is.na(train_personas$P6210 )] <- 0
 sum(is.na(train_personas$P6800))
 train_personas$P6800 [is.na(train_personas$P6800 )] <- 0
 
+train_hogares <- train_hogares %>% mutate_at(.vars = "P5090", .funs = factor)
+train_personas <- train_personas %>% mutate_at(.vars = c("Estrato1", "P6430", "P6210"), .funs = factor)
+
+#Ahora las de test
+
+sum(is.na(test_hogares$P5090))
+sum(is.na(test_hogares$P5130))
+test_hogares$P5130 [is.na(test_hogares$P5130)] <- 0
+sum(is.na(test_hogares$P5140))
+test_hogares$P5140 [is.na(test_hogares$P5140 )] <- 0
+sum(is.na(test_hogares$Nper))
+sum(is.na(test_hogares$P5000))
+
+
+
+sum(is.na(test_personas$P6430))
+test_personas$P6430 [is.na(test_personas$P6430 )] <- 0
+sum(is.na(test_personas$P6040))
+sum(is.na(test_personas$P6210))
+test_personas$P6210 [is.na(test_personas$P6210 )] <- 0
+sum(is.na(test_personas$P6800))
+test_personas$P6800 [is.na(test_personas$P6800 )] <- 0
+
+test_hogares <- test_hogares %>% mutate_at(.vars = "P5090", .funs = factor)
+test_personas <- test_personas %>% mutate_at(.vars = c("P6430", "P6210"), .funs = factor)
+
+#Finalmente creamos variable Arri
+train_hogares <- train_hogares %>%  mutate(Arri = P5130+P5140)
+test_hogares <- test_hogares %>%  mutate(Arri = P5130+P5140)
+
 
 #LUEGO DE LIMPIAR LAS BASES, SE HACE LAS DESCRIPTIVAS
-
 
 
 data_plot <- train_hogares %>% select(-c("estrato1", "oficio", "P6020", "P2010", "regSalud", "cotPension"))
