@@ -579,6 +579,139 @@ df_coeficientesm7 %>%
   theme_bw() +
   theme(axis.text.x = element_text(size = 6, angle = 45))
 
+#Predicciones del Modelo 7
+
+ing_predicho<-data.frame()
+ing_predicho<-predict(modelo7,newx=x_test)
+length(ing_predicho)
+prediccion_ingt<- cbind(ing_predicho, test_general$id)
+prediccion_ingt<-as.data.frame(prediccion_ingt)
+prediccion_ingt$s0 <- as.numeric(prediccion_ingt$s0)
+prediccion_ingt<-aggregate(s0 ~ V2, data=ingtot_pred, FUN=sum)
+prediccion_ingt<-rename(prediccion_ingt, ingtot = s0)
+prediccion_ingt<-rename(prediccion_ingt, id = V2)
+testhogares_prediccion<-as.data.frame(test_hogares)
+Definitivo <- merge(prediccion_ingt,testhogares_prediccion,by="id")
+Definitivo<- Definitivo %>% mutate(ingtotper=ingtot/Npersug)
+Definitivo <- Definitivo[c("id","ingtot","ingtotper","Npersug","Lp")] ####### variables elegidas al final, solo se mantiene id]
+Definitivo$Pobre_ingtot<-ifelse(Definitivo$ingtotper<total$Lp,1,0)
+write.csv(total,"colocar direccion del nuevo archivo", row.names = FALSE)
+
+
+#¿encontrar FN y FP a partir del m7
+
+train_general <- merge(train_hogares,train_personas,by="id")
+
+set.seed(476)
+split1 <- createDataPartition(train_general$Pobre, p = .7)[[1]]
+length(split1)
+
+testing <- train_general[-split1,]
+training <- train_general[split1,]
+
+#Modelo 7 Lasso
+
+
+x_train <- model.matrix(~ p6430 + p6040 + p6210 + p5090 + Nper + p6800 + Arri + p5000, training)
+y_train <- training$Ingtotugarr
+
+x_test<- model.matrix(~ p6430 + p6040 + p6210 + p5090 + Nper + p6800 + Arri + p5000, test)
+
+
+modelo_7_lasso <- glmnet(
+  x           = x_train,
+  y           = y_train,
+  alpha       = 1,
+  nlambda     = 100,
+  standardize = TRUE
+)
+
+regularizacion <- modelo_7_lasso$beta %>% 
+  as.matrix() %>%
+  t() %>% 
+  as_tibble() %>%
+  mutate(lambda = modelo_7_lasso$lambda)
+
+regularizacion <- regularizacion %>%
+  pivot_longer(
+    cols = !lambda, 
+    names_to = "predictor",
+    values_to = "coeficientes"
+  )
+
+regularizacion %>%
+  ggplot(aes(x = lambda, y = coeficientes, color = predictor)) +
+  geom_line() +
+  scale_x_log10(
+    breaks = trans_breaks("log10", function(x) 10^x),
+    labels = trans_format("log10", math_format(10^.x))
+  ) +
+  labs(title = "Coeficientes modelo según regularización") +
+  theme_bw() +
+  theme(legend.position = "none")
+
+
+cv_error <- cv.glmnet(
+  x      = x_train,
+  y      = y_train,
+  alpha  = 1,
+  nfolds = 10,
+  type.measure = "mse",
+  standardize  = TRUE
+)
+
+plot(cv_error)
+paste("Mejor valor de lambda:", cv_error$lambda.min)
+paste("Mejor valor de lambda + 1 desviación estandar:", cv_error$lambda.1se)
+
+
+modelo7 <- glmnet(
+  x           = x_train,
+  y           = y_train,
+  alpha       = 1,
+  lambda      = cv_error$lambda.min,
+  standardize = TRUE
+)
+
+# Coeficientes del modelo
+
+df_coeficientesm7 <- coef(modelo7) %>%
+  as.matrix() %>%
+  as_tibble(rownames = "predictor") %>%
+  rename(coeficiente = s0)
+
+df_coeficientesm7 %>%
+  filter(predictor != "(Intercept)") %>%
+  ggplot(aes(x = predictor, y = coeficiente)) +
+  geom_col() +
+  labs(title = "Coeficientes modelo 7 Lasso") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 6, angle = 45))
+
+
+ing_predicho<-data.frame()
+ing_predicho<-predict(modelo7,newx=x_test)
+length(ing_predicho)
+
+prediccion_test<- cbind(ing_predicho, testing$id, testing$Pobre, testing$Lp, testing$Npersug)
+prediccion_test<-as.data.frame(prediccion_test)
+prediccion_test$s0 <- as.numeric(prediccion_test$s0)
+prediccion_test<-aggregate(s0 ~ V2 + V3 + V4 + V5, data=prediccion_test, FUN=sum)
+prediccion_test<-rename(prediccion_test, ingtot = s0)
+prediccion_test<-rename(prediccion_test, id = V2)
+prediccion_test<-rename(prediccion_test, Pobre = V3)
+prediccion_test<-rename(prediccion_test, Lp = V4)
+prediccion_test<-rename(prediccion_test, Npersug = V5)
+prediccion_test$Npersug <- as.numeric(prediccion_test$Npersug)
+prediccion_test<- prediccion_test %>% mutate(ingtotper=ingtot/Npersug)
+prediccion_test$Pobre_pred<-ifelse(prediccion_test$ingtotper<prediccion_test$Lp,1,0)
+
+with(prediccion_test,table(Pobre,Pobre_pred))
+
+
+
+
+
 
        
 
