@@ -112,5 +112,14 @@ train_personas <- train_personas %>%
 sum(is.na(db_trainper$Oficio))
 
 
+#Modelo 1 Tradicional Personas**************
+
+modelo1 <- lm(Ingtot_hogar ~  estrato1 +P6430 + p6040 + P6210 + p5090 + p6800 + p5130 + p5140 + Nper  , data = train_hogares)
+summary(modelo1)
+
+#Copiar codigo!
+
+       
+
 
 
