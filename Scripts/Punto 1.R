@@ -93,6 +93,8 @@ train_personas$P6800 [is.na(train_personas$P6800 )] <- 0
 train_hogares <- train_hogares %>% mutate_at(.vars = "P5090", .funs = factor)
 train_personas <- train_personas %>% mutate_at(.vars = c("Estrato1", "P6430", "P6210"), .funs = factor)
 
+
+
 #Ahora las de test
 
 sum(is.na(test_hogares$P5090))
@@ -116,10 +118,25 @@ test_personas$P6800 [is.na(test_personas$P6800 )] <- 0
 test_hogares <- test_hogares %>% mutate_at(.vars = "P5090", .funs = factor)
 test_personas <- test_personas %>% mutate_at(.vars = c("P6430", "P6210"), .funs = factor)
 
-#Finalmente creamos variable Arri
+#Creamos variable Arri
 train_hogares <- train_hogares %>%  mutate(Arri = P5130+P5140)
 test_hogares <- test_hogares %>%  mutate(Arri = P5130+P5140)
 
+#Cambiamos nombres de variables por simplicidad
+
+train_hogares <- rename(.data = train_hogares, vivienda = P5090)
+test_hogares <- rename(.data = test_hogares, vivienda = P5090)
+train_hogares <- rename(.data = train_hogares, cuartos = P5000)
+test_hogares <- rename(.data = test_hogares, cuartos = P5000)
+
+train_personas <- rename(.data = train_personas, posicion = P6430)
+test_personas <- rename(.data = test_personas, posicion = P6430)
+train_personas <- rename(.data = train_personas, edad = P6040)
+test_personas <- rename(.data = test_personas, edad = P6040)
+train_personas <- rename(.data = train_personas, educ = P6210)
+test_personas <- rename(.data = test_personas, educ = P6210)
+train_personas <- rename(.data = train_personas, horastr = P6800)
+test_personas <- rename(.data = test_personas, horastr = P6800)
 
 #LUEGO DE LIMPIAR LAS BASES, SE HACE LAS DESCRIPTIVAS
 
@@ -141,9 +158,12 @@ train_personas <- train_personas %>%
 sum(is.na(db_trainper$Oficio))
 
 
+
+#### PREDICCIÓN INGRESO ####
+
 #Modelo 1 con train_Personas
 
-modelo1 <- lm(Ingtotugarr ~ P6040 + P6430 + P6210 + P6800, data = train_personas)
+modelo1 <- lm(Ingtot ~ edad + posicion + educ + horastr, data = train_personas)
 summary(modelo1)
 
 predicho_test<-predict(modelo1,newdata=test_personas)
@@ -712,8 +732,168 @@ with(prediccion_test,table(Pobre,Pobre_pred))
 
 
 
+#### CLASIFICACIÓN ####
+# Primero hogares, recordamos que utilizamos variables vivivienda propia (P5090), Arri, P5000 (CUARTOS HOGAR), Nper
 
-       
+######## Lasso-logit ########
+X <- model.matrix(Pobre ~ vivienda + cuartos + Arri + Nper, data = training)
+Y <- training$Pobre
+
+#lamda por cv 
+set.seed(3456)
+modelo.cv<- cv.glmnet(X, Y, alpha=1, family = "binomial")  
+modelo.cv
+plot(modelo.cv)
+
+minimo.l <- modelo.cv$lambda.min
+minimo.l
+
+#lasso con lamda mínimo
+lasso.modelo <- glmnet(X,Y, 
+                      family = "binomial", 
+                      alpha=1, 
+                      lambda = minimo.l,
+                      preProcess= c("center","scale"))
+#coeficientes de lasso-reg
+lasso.modelo$beta 
+
+#predicciones
+x.test <- model.matrix(Pobre ~ vivienda + cuartos + Arri + Nper, data = testing)
+lasso.predecido <- predict(lasso.modelo, newx =x.test, type="response")
+lasso.predecido
+predecir.lasso <- ifelse(lasso.predecido > 0.5, 1, 0)
+predecir.lasso
+
+#Performance del modelo
+library(ROCR)
+lasso_testing<-data.frame(testing,predecir.lasso)
+lasso_testing<-rename(lasso_testing, prediccion_lasso =s0)
+with(lasso_testing,prop.table(table(Pobre,prediccion_lasso))) #17.6% son falsos negativos
+
+pred_lasso <- prediction(predecir.lasso, lasso_testing$Pobre)
+roc_lasso <- performance(pred_lasso,"tpr","fpr")
+plot(roc_lasso, main = "ROC curve", colorize = T)
+abline(a = 0, b = 1)
+auc_lasso <- performance(pred_lasso, measure = "auc")
+auc_lasso@y.values[[1]] #AUC=0.621792
+
+confusionMatrix(as.factor(lasso_testing$prediccion_lasso),as.factor(lasso_testing$Pobre)) #Accuracy: 0.7842, sensitivity: 0.2963, specificity: 0.9472
+
+######## Ridge-reg ########
+ridge.modelo <- glmnet(x = X, y = Y, alpha = 0, nlambda = 100, standardize = TRUE)
+set.seed(321)
+ridge.error <- cv.glmnet(x = X, y = Y,alpha = 0, nfolds = 10, type.measure = "mse", standardize  = TRUE)
+plot(ridge.error)
+ridge_minimo.l<-ridge.error$lambda.min
+ridge_minimo.l
+
+#ridge con lambda óptimo
+ridge.modelo <- glmnet(x = X, y = Y, alpha = 0,lambda  = ridge_minimo.l, standardize = TRUE)
+
+#Coeficientes ridge-reg
+ridge.modelo$beta
+
+#Predicciones
+x.test <- model.matrix(Pobre ~ vivienda + cuartos + Arri + Nper, data = testing)
+ridge.predecido <- predict(ridge.modelo, newx =x.test,type="response")
+ridge.predecido
+predecir.ridge <- ifelse(ridge.predecido > 0.5, 1, 0)
+predecir.ridge
+
+#Performance del modelo
+ridge_testing <- data.frame(testing,predecir.ridge)
+
+ridge_testing <- rename(ridge_testing, prediccion_ridge =s0)
+with(ridge_testing,prop.table(table(Pobre,prediccion_ridge))) #20.9% son falsos negativos
+
+pred_ridge <- prediction(as.numeric(predecir.ridge), as.numeric(ridge_testing$Pobre))
+roc_ridge <- performance(pred_ridge,"tpr","fpr")
+plot(roc_ridge, main = "ROC curve", colorize = T)
+abline(a = 0, b = 1)
+auc_ridge <- performance(pred_ridge, measure = "auc")
+auc_ridge@y.values[[1]] #AUC=0.5664
+
+confusionMatrix(as.factor(ridge_testing$prediccion_ridge),as.factor(ridge_testing$Pobre)) #Accuracy: 0.767, sensitivity: 0.969, specificity: 0.163
 
 
+######## Logit-reg con lambda = 0 ########
+set.seed(4000)
+logit.modelo <- glmnet(X,Y, family = "binomial", alpha=1, lambda = 0, preProcess=c("center","scale"))
+
+#Coeficientes
+logit.modelo$beta 
+
+#Predicciones
+x.test <- model.matrix(Pobre ~ vivienda + cuartos + Arri + Nper, data = testing)
+logit.predecido <- predict(logit.modelo, newx =x.test,type="response")
+logit.predecido
+predecir.logit <- ifelse(logit.predecido > 0.5, 1, 0)
+predecir.logit
+
+#Performance del modelo
+logit_testing<-data.frame(testing,predecir.logit)
+
+logit_testing<-rename(logit_testing, prediccion_logit =s0)
+with(logit_testing,prop.table(table(Pobre, prediccion_logit))) #17.6% son falsos negativos
+
+pred_logit<-prediction(as.numeric(predecir.logit), as.numeric(logit_testing$Pobre))
+roc_logit <- performance(pred_logit,"tpr","fpr")
+plot(roc_logit, main = "ROC curve", colorize = T)
+abline(a = 0, b = 1)
+auc_logit <- performance(pred_logit, measure = "auc")
+auc_logit@y.values[[1]] ##AUC=0.6217
+confusionMatrix(as.factor(logit_testing$prediccion_logit),as.factor(logit_testing$Pobre)) #Accuracy: 0.78, sensitivity: 0.947, specificity: 0.296
+
+##Remuestreo upsampling para lasso##
+
+training$Pobre <- factor(training$Pobre)
+set.seed(867)
+uptraining <- upSample(x = training, y = training$Pobre, yname = "Pobre")
+
+dim(training)
+dim(uptraining)
+table(uptraining$Pobre)
+
+up_X<- model.matrix(Pobre ~ vivienda + cuartos + Arri + Nper, data = uptraining)
+up_Y<- uptraining$Pobre
+
+#lamda por cv
+set.seed(2001)
+modelo.cv.up<- cv.glmnet(up_X, up_Y, alpha=1, family = "binomial")  
+modelo.cv.up
+plot(modelo.cv.up)
+
+minimo.l.up <- modelo.cv.up$lambda.min
+minimo.l.up
+
+#lasso con lamda minimo
+lasso.modelo.up <- glmnet(up_X,up_Y, 
+                       family = "binomial", 
+                       alpha=1, 
+                       lambda = minimo.l.up,
+                       preProcess= c("center","scale"))
+#coeficientes
+lasso.modelo.up$beta 
+
+#Predicciones
+x.test.up <- model.matrix(Pobre ~ vivienda + cuartos + Arri + Nper, data = testing)
+lasso.up.predecido <- predict(lasso.modelo.up, newx =x.test.up, type="response")
+lasso.up.predecido
+predecir.lasso.up <- ifelse(lasso.up.predecido > 0.5, 1, 0)
+predecir.lasso.up
+
+#Performance del modelo
+lasso.up_testing <- data.frame(testing,predecir.lasso.up)
+
+lasso.up_testing <- rename(lasso.up_testing, prediccion_lasso.up =s0)
+with(lasso.up_testing,prop.table(table(Pobre, prediccion_lasso.up))) #Un     son falsos negativos
+
+pred_lasso.up<-prediction(predecir.lasso.up, lassoup_testing$Pobre)
+roc_lasso.up <- performance(pred_lasso.up,"tpr","fpr")
+plot(roc_lasso.up, main = "ROC curve", colorize = T)
+abline(a = 0, b = 1)
+auc_lasso.up <- performance(pred_lasso.up, measure = "auc")
+auc_lasso.up@y.values[[1]] #AUC=
+
+confusionMatrix(as.factor(lasso.up_testing$prediccion_lasso.up),as.factor(lasso.up_testing$Pobre)) #Accuracy: , sensitivity: , specificity: 
 
