@@ -69,6 +69,13 @@ sum(is.na(train_hogares$P5000))
 
 #Volvemos 0 los NA de personas
 sum(is.na(train_personas$P6430))
+train_personas$P6430 [is.na(train_personas$P6430)] <- 0
+sum(is.na(train_personas$P6040))
+sum(is.na(train_personas$P6210))
+train_personas$P6210 [is.na(train_personas$P6210 )] <- 0
+sum(is.na(train_personas$P6800))
+train_personas$P6800 [is.na(train_personas$P6800 )] <- 0
+
 #Hacemos un "tab" para entender la variable
 train_personas %>%
   group_by(P6430) %>%
@@ -87,9 +94,6 @@ train_personas %>%
     totalN = (cumsum(n)),
     percent = round((n / sum(n)), 3),
     cumuPer = round(cumsum(freq = n / sum(n)), 3))
-train_personas$P6210 [is.na(train_personas$P6210 )] <- 0
-sum(is.na(train_personas$P6800))
-train_personas$P6800 [is.na(train_personas$P6800 )] <- 0
 
 train_hogares <- train_hogares %>% mutate_at(.vars = "P5090", .funs = factor)
 train_personas <- train_personas %>% mutate_at(.vars = c("Estrato1", "P6430", "P6210"), .funs = factor)
@@ -189,6 +193,7 @@ df_coeficientesm1 %>%
 
 x_train <- model.matrix(Ingtot ~ edad + posicion + educ + horastr, data = train_personas)[, -1]
 y_train <- train_personas$Ingtot
+y_train = na.omit(y_train) ##igualar dimensiones
 
 #scale(x_train)
 model_2_ridge <- glmnet(
@@ -219,7 +224,7 @@ regularizacion %>%
     breaks = trans_breaks("log10", function(x) 10^x),
     labels = trans_format("log10", math_format(10^.x))
   ) +
-  labs(title = "Coeficientes en función de la regularización para m2") +
+  labs(title = "Coefs regularización m2") +
   theme_bw() +
   theme(legend.position = "none")
 
@@ -234,7 +239,7 @@ cv_error <- cv.glmnet(
 
 plot(cv_error)
 paste("Mejor valor de lambda:", cv_error$lambda.min)
-paste("Mejor valor de lambda + 1 desviación estandar:", cv_error$lambda.1se)
+paste("Mejor valor de lambda + una desviación estandar:", cv_error$lambda.1se)
 
 modelo2 <- glmnet(
   x           = x_train,
@@ -249,20 +254,21 @@ df_coeficientesm2 <- coef(modelo2) %>%
   as_tibble(rownames = "predictor") %>%
   rename(coeficiente = s0)
 
-df_coeficientes %>%
+df_coeficientesm2 %>%
   filter(predictor != "(Intercepto)") %>%
   ggplot(aes(x = predictor, y = coeficiente)) +
   geom_col() +
-  labs(title = "Coeficientes modelo Ridge") +
+  labs(title = "Coeficientes modelo2 Ridge") +
   theme_bw() +
   theme(axis.text.x = element_text(size = 6, angle = 45))
 
 #Modelo 3 con lasso y Personas
 
-x_train <- model.matrix(~ edad + posicion + educ + horastr, data = train_personas)
+x_train <- model.matrix(Ingtot~ edad + posicion + educ + horastr, data = train_personas)
 y_train <- train_personas$Ingtot
+y_train = na.omit(y_train) ##igualar dimensiones
 
-x_test<- model.matrix(~ edad + posicion + educ + horastr, data = test_personas)
+x_test<- model.matrix( ~ edad + posicion + educ + horastr, data = test_personas)
 
 
 modelo_3_lasso <- glmnet(
@@ -293,7 +299,7 @@ regularizacion %>%
     breaks = trans_breaks("log10", function(x) 10^x),
     labels = trans_format("log10", math_format(10^.x))
   ) +
-  labs(title = "Coeficientes modelo regularizaci?n") +
+  labs(title = "Coeficientes modelo3 regularización") +
   theme_bw() +
   theme(legend.position = "none")
 
@@ -325,16 +331,17 @@ df_coeficientesm3 <- coef(modelo3) %>%
   as_tibble(rownames = "predictor") %>%
   rename(coeficiente = s0)
 
-df_coeficientes %>%
-  filter(predictor != "(Intercept)") %>%
+df_coeficientesm3 %>%
+  filter(predictor != "(Intercepto)") %>%
   ggplot(aes(x = predictor, y = coeficiente)) +
   geom_col() +
-  labs(title = "Coeficientes modelo Lasso") +
+  labs(title = "Coeficientes modelo3 Lasso") +
   theme_bw() +
   theme(axis.text.x = element_text(size = 6, angle = 45))
+ #######################################################
 
 ing_predicho<-data.frame()
-ing_predicho<-predict(modelo3,newx=xtest)
+ing_predicho<-predict(modelo3,newx=x_test)
 ingtot_pred<- cbind(ing_predicho, test_personas$id)
 ingtot_pred<-as.data.frame(ingtot_pred)
 ingtot_pred$s0 <- as.numeric(ingtot_pred$s0)
@@ -349,7 +356,7 @@ test_hogares2<-as.data.frame(test_hogares)
 Final <- merge(aggregate,test_hogares2,by="id")
 Final <- Final %>% mutate(ingtotper=ingtot/Npersug)
 Final <- Final[c("id","ingtot","ingtotper","Npersug","Lp")]
-total$Pobre_ingtot<-ifelse(total$ingtotper<total$Lp,1,0)
+Final$Pobre_ingtot<-ifelse(Final$ingtotper<Final$Lp,1,0)
 
 #Modelo 4  tradicional Hogares
 
@@ -524,9 +531,9 @@ train_general <- merge(train_hogares,train_personas,by="id")
 test_general <- merge(test_hogares,test_personas,by="id")
 
 ##Comienzo del modelo
-x_train <- model.matrix(~ p6430 + p6040 + p6210 + p5090 + Nper + p6800 + Arri + p5000, train_general)
+x_train <- model.matrix(~ cuartos + Nper + vivienda + educ + posicion, train_general)
 y_train <- train_general$Ingtotugarr
-x_test<- model.matrix(~ p6430 + p6040 + p6210 + p5090 + Nper + p6800 + Arri + p5000, test_general)
+x_test<- model.matrix(~  cuartos + Nper + vivienda + educ + posicion, test_general)
 
 modelo_7_lasso <- glmnet(
   x           = x_train,
@@ -557,7 +564,7 @@ regularizacion %>%
     breaks = trans_breaks("log10", function(x) 10^x),
     labels = trans_format("log10", math_format(10^.x))
   ) +
-  labs(title = "Coeficientes modelo según regularización") +
+  labs(title = "Coeficientes m7 regularización") +
   theme_bw() +
   theme(legend.position = "none")
 
@@ -573,7 +580,7 @@ cv_error <- cv.glmnet(
 
 plot(cv_error)
 paste("Mejor valor de lambda:", cv_error$lambda.min)
-paste("Mejor valor de lambda + 1 desviaci?n est?ndar:", cv_error$lambda.1se)
+paste("Mejor valor de lambda + una desviación estandar:", cv_error$lambda.1se)
 
 
 modelo7 <- glmnet(
@@ -585,7 +592,6 @@ modelo7 <- glmnet(
 )
 
 
-# Coeficientes del modelo
 df_coeficientesm7 <- coef(modelo7) %>%
   as.matrix() %>%
   as_tibble(rownames = "predictor") %>%
@@ -595,7 +601,7 @@ df_coeficientesm7 %>%
   filter(predictor != "(Intercept)") %>%
   ggplot(aes(x = predictor, y = coeficiente)) +
   geom_col() +
-  labs(title = "Coeficientes del modelo Lasso") +
+  labs(title = "Coeficientes m7 Lasso") +
   theme_bw() +
   theme(axis.text.x = element_text(size = 6, angle = 45))
 
@@ -614,8 +620,8 @@ testhogares_prediccion<-as.data.frame(test_hogares)
 Definitivo <- merge(prediccion_ingt,testhogares_prediccion,by="id")
 Definitivo<- Definitivo %>% mutate(ingtotper=ingtot/Npersug)
 Definitivo <- Definitivo[c("id","ingtot","ingtotper","Npersug","Lp")] ####### variables elegidas al final, solo se mantiene id]
-Definitivo$Pobre_ingtot<-ifelse(Definitivo$ingtotper<total$Lp,1,0)
-write.csv(total,"colocar direccion del nuevo archivo", row.names = FALSE)
+Definitivo$Pobre_ingtot<-ifelse(Definitivo$ingtotper<Final$Lp,1,0)
+write.csv(Final,"C:\\Users\\dani_\\OneDrive\\Escritorio\\Universidad\\Octavo semestre\\Big data\\Taller_BigData_2\\Views\\Resultados.csv", row.names = FALSE)
 
 
 #¿encontrar FN y FP a partir del m7
@@ -628,85 +634,6 @@ length(split1)
 
 testing <- train_general[-split1,]
 training <- train_general[split1,]
-
-#Modelo 7 Lasso
-
-
-x_train <- model.matrix(~ p6430 + p6040 + p6210 + p5090 + Nper + p6800 + Arri + p5000, training)
-y_train <- training$Ingtotugarr
-
-x_test<- model.matrix(~ p6430 + p6040 + p6210 + p5090 + Nper + p6800 + Arri + p5000, test)
-
-
-modelo_7_lasso <- glmnet(
-  x           = x_train,
-  y           = y_train,
-  alpha       = 1,
-  nlambda     = 100,
-  standardize = TRUE
-)
-
-regularizacion <- modelo_7_lasso$beta %>% 
-  as.matrix() %>%
-  t() %>% 
-  as_tibble() %>%
-  mutate(lambda = modelo_7_lasso$lambda)
-
-regularizacion <- regularizacion %>%
-  pivot_longer(
-    cols = !lambda, 
-    names_to = "predictor",
-    values_to = "coeficientes"
-  )
-
-regularizacion %>%
-  ggplot(aes(x = lambda, y = coeficientes, color = predictor)) +
-  geom_line() +
-  scale_x_log10(
-    breaks = trans_breaks("log10", function(x) 10^x),
-    labels = trans_format("log10", math_format(10^.x))
-  ) +
-  labs(title = "Coeficientes modelo según regularización") +
-  theme_bw() +
-  theme(legend.position = "none")
-
-
-cv_error <- cv.glmnet(
-  x      = x_train,
-  y      = y_train,
-  alpha  = 1,
-  nfolds = 10,
-  type.measure = "mse",
-  standardize  = TRUE
-)
-
-plot(cv_error)
-paste("Mejor valor de lambda:", cv_error$lambda.min)
-paste("Mejor valor de lambda + 1 desviación estandar:", cv_error$lambda.1se)
-
-
-modelo7 <- glmnet(
-  x           = x_train,
-  y           = y_train,
-  alpha       = 1,
-  lambda      = cv_error$lambda.min,
-  standardize = TRUE
-)
-
-# Coeficientes del modelo
-
-df_coeficientesm7 <- coef(modelo7) %>%
-  as.matrix() %>%
-  as_tibble(rownames = "predictor") %>%
-  rename(coeficiente = s0)
-
-df_coeficientesm7 %>%
-  filter(predictor != "(Intercept)") %>%
-  ggplot(aes(x = predictor, y = coeficiente)) +
-  geom_col() +
-  labs(title = "Coeficientes modelo 7 Lasso") +
-  theme_bw() +
-  theme(axis.text.x = element_text(size = 6, angle = 45))
 
 
 ing_predicho<-data.frame()
