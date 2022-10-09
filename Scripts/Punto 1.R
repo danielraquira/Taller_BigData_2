@@ -169,7 +169,7 @@ summary(modelo1)
 
 predicho_test<-predict(modelo1,newdata=test_personas)
 
-model1 <- train(Ingtotugarr ~ p6430 + P6040 + P6210 +P6800 ,
+model1 <- train(Ingtot ~ edad + posicion + educ + horastr ,
                 # model to fit
                 data = train_personas,
                 trControl = trainControl(method = "cv", number = 4), method = "lm")
@@ -187,8 +187,8 @@ df_coeficientesm1 %>%
 
 #Modelo 2 es hacer un ridge con las personas
 
-x_train <- model.matrix(Ingtotugarr ~ P6040 + P6430 + P6210 + P6800, data = train_personas)[, -1]
-y_train <- train_personas$Ingtotugarr
+x_train <- model.matrix(Ingtot ~ edad + posicion + educ + horastr, data = train_personas)[, -1]
+y_train <- train_personas$Ingtot
 
 #scale(x_train)
 model_2_ridge <- glmnet(
@@ -250,7 +250,7 @@ df_coeficientesm2 <- coef(modelo2) %>%
   rename(coeficiente = s0)
 
 df_coeficientes %>%
-  filter(predictor != "(Intercept)") %>%
+  filter(predictor != "(Intercepto)") %>%
   ggplot(aes(x = predictor, y = coeficiente)) +
   geom_col() +
   labs(title = "Coeficientes modelo Ridge") +
@@ -259,10 +259,10 @@ df_coeficientes %>%
 
 #Modelo 3 con lasso y Personas
 
-x_train <- model.matrix(~ P6040 + P6430 + P6210 + P6800, data = train_personas)
-y_train <- db_trainper$Ingtot
+x_train <- model.matrix(~ edad + posicion + educ + horastr, data = train_personas)
+y_train <- train_personas$Ingtot
 
-x_test<- model.matrix(~ P6040 + P6430 + P6210 + P6800, data = test_personas)
+x_test<- model.matrix(~ edad + posicion + educ + horastr, data = test_personas)
 
 
 modelo_3_lasso <- glmnet(
@@ -309,7 +309,7 @@ cv_error <- cv.glmnet(
 
 plot(cv_error)
 paste("Mejor valor de lambda:", cv_error$lambda.min)
-paste("Mejor valor de lambda + 1 desviación estandar:", cv_error$lambda.1se)
+paste("Mejor valor de lambda + una desviación estandar:", cv_error$lambda.1se)
 
 
 modelo3 <- glmnet(
@@ -353,20 +353,19 @@ total$Pobre_ingtot<-ifelse(total$ingtotper<total$Lp,1,0)
 
 #Modelo 4  tradicional Hogares
 
-modelo4 <- lm(Ingtotugarr  ~ p5090 + Nper + p5000 + Arri, data = train_hogares)
+modelo4 <- lm(Ingtotugarr  ~ vivienda + Nper + cuartos + Arri, data = train_hogares)
 summary(modelo4)
 
-model4 <- train(Ingtotugarr  ~ p5090 + Nper + p5000 + Arri
-                # model to fit
+modelo4 <- train(Ingtotugarr  ~ vivienda + Nper + cuartos + Arri,
                 data = train_hogares,
                 trControl = trainControl(method = "cv", number = 5), method = "lm")
 
 
-df_coeficientesm4 <- model4$coefficients %>%
+df_coeficientesm4 <- modelo4$coefficients %>%
   enframe(name = "predictor", value = "coeficiente")
 
 df_coeficientesm4 %>%
-  filter(predictor != "(Intercept)") %>%
+  filter(predictor != "(Intercepto)") %>%
   ggplot(aes(x = predictor, y = coeficiente)) +
   geom_col() +
   labs(title = "Coeficientes modelo tradicional") +
@@ -375,7 +374,7 @@ df_coeficientesm4 %>%
 
 #Modelo 5 hacer ridge con hogares
 
-x_train <- model.matrix(Ingtotugarr  ~ p5090 + Nper + p5000 + Arri, data = train_hogares)[, -1]
+x_train <- model.matrix(Ingtotugarr  ~ vivienda + Nper + cuartos + Arri, data = train_hogares)[, -1]
 y_train <- train_hogares$Ingtotugarr
 
 #scale(x_train)
@@ -438,7 +437,7 @@ df_coeficientesm5 <- coef(modelo5) %>%
   rename(coeficiente = s0)
 
 df_coeficientesm5 %>%
-  filter(predictor != "(Intercept)") %>%
+  filter(predictor != "(Intercepto)") %>%
   ggplot(aes(x = predictor, y = coeficiente)) +
   geom_col() +
   labs(title = "Coeficientes del modelo Ridge") +
@@ -447,7 +446,7 @@ df_coeficientesm5 %>%
 
 #Modelo 6 hacer un lasso con Hogares****************************************
 
-x_train <- model.matrix(Ingtotugarr  ~ p5090 + Nper + p5000 + Arri, data = train_hogares)[, -1]
+x_train <- model.matrix(Ingtotugarr  ~ vivienda + Nper + cuartos + Arri, data = train_hogares)[, -1]
 y_train <- train_hogares$Ingtotugarr
 
 modelo_6_lasso <- glmnet(
@@ -478,7 +477,7 @@ regularizacion %>%
     breaks = trans_breaks("log10", function(x) 10^x),
     labels = trans_format("log10", math_format(10^.x))
   ) +
-  labs(title = "Coeficientes del modelo en funci?n de la regularizaci?n") +
+  labs(title = "Coefs del m6 regularización") +
   theme_bw() +
   theme(legend.position = "none")
 
@@ -494,7 +493,7 @@ cv_error <- cv.glmnet(
 
 plot(cv_error)
 paste("Mejor valor de lambda:", cv_error$lambda.min)
-paste("Mejor valor de lambda + 1 desviación estandar:", cv_error$lambda.1se)
+paste("Mejor valor de lambda + una desviación estandar:", cv_error$lambda.1se)
 
 
 modelo6 <- glmnet(
@@ -514,7 +513,7 @@ df_coeficientesm6 %>%
   filter(predictor != "(Intercept)") %>%
   ggplot(aes(x = predictor, y = coeficiente)) +
   geom_col() +
-  labs(title = "Coeficientes del modelo Lasso") +
+  labs(title = "Coefs modelo 6 Lasso") +
   theme_bw() +
   theme(axis.text.x = element_text(size = 6, angle = 45))
 
