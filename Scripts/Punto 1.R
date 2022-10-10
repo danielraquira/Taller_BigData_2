@@ -676,12 +676,8 @@ minimo.l <- modelo.cv$lambda.min
 minimo.l
 
 #lasso con lamda mínimo
-lasso.modelo <- glmnet(X,Y, 
-                      family = "binomial", 
-                      alpha=1, 
-                      lambda = minimo.l,
-                      preProcess= c("center","scale"))
-#coeficientes de lasso-reg
+lasso.modelo <- glmnet(X,Y, family = "binomial", alpha=1, lambda = minimo.l, preProcess= c("center","scale"))
+#coeficientes
 lasso.modelo$beta 
 
 #predicciones
@@ -717,7 +713,7 @@ ridge_minimo.l
 #ridge con lambda óptimo
 ridge.modelo <- glmnet(x = X, y = Y, alpha = 0,lambda  = ridge_minimo.l, standardize = TRUE)
 
-#Coeficientes ridge-reg
+#Coeficientes 
 ridge.modelo$beta
 
 #Predicciones
@@ -794,11 +790,7 @@ minimo.l.up <- modelo.cv.up$lambda.min
 minimo.l.up
 
 #lasso con lambda minimo
-lasso.modelo.up <- glmnet(up_X,up_Y, 
-                       family = "binomial", 
-                       alpha=1, 
-                       lambda = minimo.l.up,
-                       preProcess= c("center","scale"))
+lasso.modelo.up <- glmnet(up_X,up_Y, family = "binomial", alpha=1, lambda = minimo.l.up, preProcess= c("center","scale"))
 #coeficientes
 lasso.modelo.up$beta 
 
