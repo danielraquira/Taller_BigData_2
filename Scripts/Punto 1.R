@@ -693,7 +693,7 @@ lasso_testing<-data.frame(testing,predecir.lasso)
 lasso_testing<-rename(lasso_testing, prediccion_lasso =s0)
 with(lasso_testing,prop.table(table(Pobre,prediccion_lasso))) #17.6% son falsos negativos
 
-pred_lasso <- prediction(predecir.lasso, lasso_testing$Pobre)
+pred_lasso <- prediction(as.numeric(predecir.lasso), as.numeric(lasso_testing$Pobre))
 roc_lasso <- performance(pred_lasso,"tpr","fpr")
 plot(roc_lasso, main = "ROC curve", colorize = T)
 abline(a = 0, b = 1)
