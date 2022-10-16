@@ -619,7 +619,7 @@ prediccion_ingt<-rename(prediccion_ingt, id = V2)
 testhogares_prediccion<-as.data.frame(test_hogares)
 Definitivo <- merge(prediccion_ingt,testhogares_prediccion,by="id")
 Definitivo<- Definitivo %>% mutate(ingtotper=ingtot/Npersug)
-Definitivo <- Definitivo[c("id","ingtot","ingtotper","Npersug","Lp")] ####### variables elegidas al final, solo se mantiene id]
+Definitivo <- Definitivo[c("id","ingtotugarr","ingtotper","Npersug","Lp")] ####### variables elegidas al final, solo se mantiene id]
 Definitivo$Pobre_ingtot<-ifelse(Definitivo$ingtotper<Final$Lp,1,0)
 write.csv(Final,"C:\\Users\\dani_\\OneDrive\\Escritorio\\Universidad\\Octavo semestre\\Big data\\Taller_BigData_2\\Views\\Resultados.csv", row.names = FALSE)
 
