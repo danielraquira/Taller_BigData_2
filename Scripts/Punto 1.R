@@ -1,6 +1,6 @@
 ################################################
 #                 Taller 2                     #
-#                                              #
+#               CODIGO GENERAL                 #
 # Colaboradores                                #
 # Karol Gutierrez - 201816712                  #
 # Daniel Raquira - 201914059                   #
