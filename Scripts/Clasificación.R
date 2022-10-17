@@ -23,6 +23,16 @@ p_load(tidyverse, caret, rio,
 
 
 
+train_general <- merge(train_hogares,train_personas,by="id")
+
+set.seed(476)
+split1 <- createDataPartition(train_general$Pobre, p = .7)[[1]]
+length(split1)
+
+testing <- train_general[-split1,]
+training <- train_general[split1,]
+
+
 
 #### CLASIFICACIÓN ####
 # Primero hogares, recordamos que utilizamos variables vivivienda propia (P5090), Arri, P5000 (CUARTOS HOGAR), Nper
